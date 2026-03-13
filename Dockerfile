@@ -1,5 +1,5 @@
 ## Frontend build stage
-FROM node:24-alpine AS frontend
+FROM --platform=$BUILDPLATFORM node:24-alpine AS frontend
 
 RUN corepack enable
 WORKDIR /app/frontend
