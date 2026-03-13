@@ -1,3 +1,23 @@
+## Frontend build stage
+FROM node:24-alpine AS frontend
+
+RUN corepack enable
+WORKDIR /app/frontend
+COPY frontend/package.json frontend/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+COPY frontend/ .
+RUN pnpm run build
+
+## Go build stage
+FROM golang:1.25-alpine AS builder
+
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+COPY --from=frontend /app/frontend/dist ./frontend/dist
+RUN CGO_ENABLED=0 go build -o filebrowser .
+
 ## Multistage build: First stage fetches dependencies
 FROM alpine:3.23 AS fetcher
 
@@ -18,7 +38,7 @@ RUN addgroup -g $GID user && \
     adduser -D -u $UID -G user user
 
 # Copy binary, scripts, and configurations into image with proper ownership
-COPY --chown=user:user filebrowser /bin/filebrowser
+COPY --chown=user:user --from=builder /app/filebrowser /bin/filebrowser
 COPY --chown=user:user docker/common/ /
 COPY --chown=user:user docker/alpine/ /
 COPY --chown=user:user --from=fetcher /sbin/tini-static /bin/tini
